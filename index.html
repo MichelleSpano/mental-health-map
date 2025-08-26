@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Social Exclusion vs Mental Health - England</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; background: #f5f5f5; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center; }
+        .header h1 { margin: 0; font-size: 28px; }
+        .header p { margin: 10px 0 0 0; font-size: 16px; opacity: 0.9; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .map-box { background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; overflow: hidden; }
+        #map { height: 600px; width: 100%; }
+        .legend { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: inline-block; }
+        .legend h4 { margin: 0 0 15px 0; text-align: center; }
+        .legend-grid { display: grid; grid-template-columns: auto repeat(3, 30px); gap: 3px; align-items: center; }
+        .legend-cell { width: 30px; height: 30px; border: 1px solid black; }
+        .legend-label { text-align: center; font-size: 12px; }
+        .insights { display: grid; gap: 15px; margin-top: 20px; }
+        .insight { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .insight h4 { margin: 0 0 10px 0; color: #333; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Social Exclusion vs Mental Health</h1>
+        <p>England Local Authorities - Interactive Map</p>
+    </div>
+    
+    <div class="container">
+        <div class="map-box">
+            <div id="map"></div>
+        </div>
+        
+        <div class="legend">
+            <h4>Social Exclusion vs Mental Health</h4>
+            <div class="legend-grid">
+                <div></div>
+                <div class="legend-label">Low</div>
+                <div class="legend-label">Med</div>
+                <div class="legend-label">High</div>
+                
+                <div style="writing-mode: vertical-rl; font-size: 12px;">Poor MH</div>
+                <div class="legend-cell" style="background: #d477a4;"></div>
+                <div class="legend-cell" style="background: #ad6aaa;"></div>
+                <div class="legend-cell" style="background: #7a6faa;"></div>
+                
+                <div style="writing-mode: vertical-rl; font-size: 12px;">Med MH</div>
+                <div class="legend-cell" style="background: #dfb0d6;"></div>
+                <div class="legend-cell" style="background: #a5add3;"></div>
+                <div class="legend-cell" style="background: #5698b9;"></div>
+                
+                <div style="writing-mode: vertical-rl; font-size: 12px;">Good MH</div>
+                <div class="legend-cell" style="background: #e8e8e8;"></div>
+                <div class="legend-cell" style="background: #ace4e4;"></div>
+                <div class="legend-cell" style="background: #5ac8c8;"></div>
+                
+                <div></div>
+                <div class="legend-label" style="grid-column: 2/5; text-align: center; margin-top: 5px;">Social Exclusion</div>
+            </div>
+        </div>
+        
+        <div class="insights">
+            <div class="insight">
+                <h4>🔍 Double Disadvantage</h4>
+                <p>Dark purple areas show high social exclusion AND poor mental health - communities needing targeted interventions.</p>
+            </div>
+            <div class="insight">
+                <h4>💪 Resilient Communities</h4>
+                <p>Teal areas show high exclusion but good mental health - what protective factors exist here?</p>
+            </div>
+            <div class="insight">
+                <h4>🎯 Policy Implications</h4>
+                <p>Mental health and social exclusion don't always correlate - interventions need tailored approaches.</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script>
+        // Sample data - replace with your actual data
+        const data = [
+            {name: "Manchester", coords: [53.4808, -2.2426], exclusion: 0.82, mh: 11.85, cat: "3-3", color: "#7a6faa", n: 245},
+            {name: "Birmingham", coords: [52.4862, -1.8904], exclusion: 0.76, mh: 11.82, cat: "3-3", color: "#7a6faa", n: 312},
+            {name: "Liverpool", coords: [53.4084, -2.9916], exclusion: 0.89, mh: 11.91, cat: "3-3", color: "#7a6faa", n: 287},
+            {name: "Surrey Heath", coords: [51.3378, -0.7420], exclusion: -0.45, mh: 10.45, cat: "1-1", color: "#e8e8e8", n: 156},
+            {name: "Cambridge", coords: [52.2053, 0.1218], exclusion: -0.32, mh: 10.52, cat: "1-1", color: "#e8e8e8", n: 189},
+            {name: "Tower Hamlets", coords: [51.5199, -0.0116], exclusion: 0.89, mh: 10.48, cat: "3-1", color: "#5ac8c8", n: 278},
+            {name: "Brighton", coords: [50.8225, -0.1372], exclusion: 0.23, mh: 11.82, cat: "2-3", color: "#ad6aaa", n: 203},
+            {name: "Bristol", coords: [51.4545, -2.5879], exclusion: 0.34, mh: 11.23, cat: "2-2", color: "#a5add3", n: 289}
+        ];
+
+        const map = L.map('map').setView([53.5, -2.5], 6);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        data.forEach(area => {
+            const circle = L.circleMarker(area.coords, {
+                radius: Math.sqrt(area.n) / 3,
+                fillColor: area.color,
+                color: '#000',
+                weight: 2,
+                fillOpacity: 0.8
+            }).addTo(map);
+
+            circle.bindPopup(`
+                <h3>${area.name}</h3>
+                <p><strong>Social Exclusion:</strong> ${area.exclusion.toFixed(3)}</p>
+                <p><strong>Mental Health:</strong> ${area.mh.toFixed(2)}</p>
+                <p><strong>Sample Size:</strong> ${area.n}</p>
+                <p><strong>Category:</strong> ${area.cat}</p>
+            `);
+        });
+    </script>
+</body>
+</html>
