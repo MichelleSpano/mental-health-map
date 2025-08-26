@@ -11,7 +11,7 @@
         .header h1 { margin: 0; font-size: 28px; }
         .header p { margin: 10px 0 0 0; font-size: 16px; opacity: 0.9; }
         .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-        .map-box { background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; overflow: hidden; }
+        .map-box { background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; overflow: hidden; position: relative; }
         #map { height: 600px; width: 100%; }
         .legend { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: inline-block; }
         .legend h4 { margin: 0 0 15px 0; text-align: center; }
@@ -22,20 +22,28 @@
         .insight { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         .insight h4 { margin: 0 0 10px 0; color: #333; }
         .stats { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; text-align: center; }
+        .loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(255,255,255,0.9); padding: 20px; border-radius: 8px; z-index: 1000; }
+        .spinner { border: 3px solid #f3f3f3; border-top: 3px solid #667eea; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto 10px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>Social Exclusion vs Mental Health</h1>
-        <p>England Local Authorities - Interactive Bivariate Analysis</p>
+        <p>England Local Authorities - Interactive Choropleth Map</p>
     </div>
     
     <div class="container">
         <div class="stats">
-            <p><strong>Complete Dataset:</strong> <span id="totalAreas">293</span> Local Authorities | <strong>Total Sample:</strong> <span id="totalSample">18,273</span> participants</p>
+            <p><strong>Complete Dataset:</strong> 293 Local Authorities | <strong>Total Sample:</strong> 18,273 participants</p>
+            <p><em>Click on any area to see detailed information</em></p>
         </div>
         
         <div class="map-box">
+            <div class="loading" id="loadingDiv">
+                <div class="spinner"></div>
+                <div>Loading boundary data...</div>
+            </div>
             <div id="map"></div>
         </div>
         
@@ -85,340 +93,98 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     <script>
-
-        const data = [
-            {name: "Hartlepool", coords: [54.66944111912203, -1.259403072446188], exclusion: 0.61852551, mh: 11.789474, cat: "3-2", color: "#5698b9", n: 19},
-            {name: "Redcar and Cleveland", coords: [54.55166445936308, -1.0206290512178953], exclusion: 0.18342212, mh: 11.396227, cat: "2-2", color: "#a5add3", n: 53},
-            {name: "Stockton-on-Tees", coords: [54.56157672645222, -1.3323156532608946], exclusion: -0.49177101, mh: 11.3, cat: "1-2", color: "#dfb0d6", n: 70},
-            {name: "Darlington", coords: [54.548698810344106, -1.5525873301797952], exclusion: -0.41537607, mh: 11.734694, cat: "1-2", color: "#dfb0d6", n: 49},
-            {name: "Halton", coords: [53.34513268741944, -2.7121811030279708], exclusion: 0.65210962, mh: 10.837838, cat: "3-1", color: "#5ac8c8", n: 37},
-            {name: "Warrington", coords: [53.39909750023756, -2.562781301837094], exclusion: -0.043335516, mh: 11.48, cat: "2-2", color: "#a5add3", n: 50},
-            {name: "Blackburn with Darwen", coords: [53.692611809065916, -2.4675473686033884], exclusion: 0.18332444, mh: 11, cat: "2-1", color: "#ace4e4", n: 94},
-            {name: "Blackpool", coords: [53.81778291339997, -3.0292369642904804], exclusion: 0.5179013, mh: 11.860465, cat: "3-2", color: "#5698b9", n: 43},
-            {name: "Kingston upon Hull, City of", coords: [53.76405746459691, -0.33486350804766396], exclusion: -0.1341354, mh: 12.546875, cat: "2-3", color: "#ad6aaa", n: 64},
-            {name: "East Riding of Yorkshire", coords: [53.87452977853914, -0.4925113126233813], exclusion: -0.037205737, mh: 11.362904, cat: "2-2", color: "#a5add3", n: 124},
-            {name: "North East Lincolnshire", coords: [53.54259750532555, -0.13790845562475243], exclusion: 0.020832261, mh: 10.894117, cat: "2-1", color: "#ace4e4", n: 85},
-            {name: "North Lincolnshire", coords: [53.59085392960154, -0.5939051127957081], exclusion: 1.8407176, mh: 10.431818, cat: "3-1", color: "#5ac8c8", n: 44},
-            {name: "York", coords: [53.958739498410914, -1.061440513151164], exclusion: -0.023223478, mh: 11.794118, cat: "2-2", color: "#a5add3", n: 68},
-            {name: "Derby", coords: [52.912544511714316, -1.4683440790804199], exclusion: -0.22254252, mh: 12.136987, cat: "1-3", color: "#d477a4", n: 73},
-            {name: "Leicester", coords: [52.63791417851623, -1.1284854780624491], exclusion: 0.34837008, mh: 11.7, cat: "3-2", color: "#5698b9", n: 100},
-            {name: "Rutland", coords: [52.66072216369353, -0.6546932798704657], exclusion: -0.094572298, mh: 10.8125, cat: "2-1", color: "#ace4e4", n: 16},
-            {name: "Nottingham", coords: [52.96058471579332, -1.1765205165680832], exclusion: 0.5268212, mh: 11.862386, cat: "3-2", color: "#5698b9", n: 109},
-            {name: "Herefordshire, County of", coords: [52.10347249607299, -2.7449528057244175], exclusion: 0.81927347, mh: 11.276596, cat: "3-2", color: "#5698b9", n: 47},
-            {name: "Telford and Wrekin", coords: [52.730194254785225, -2.488794691812537], exclusion: 0.24114907, mh: 12.375, cat: "3-3", color: "#7a6faa", n: 56},
-            {name: "Stoke-on-Trent", coords: [53.018018705202266, -2.164528187699336], exclusion: 1.4610668, mh: 13.3, cat: "3-3", color: "#7a6faa", n: 80},
-            {name: "Bath and North East Somerset", coords: [51.355984908345114, -2.4752551870187225], exclusion: -0.16864473, mh: 12.220589, cat: "2-3", color: "#ad6aaa", n: 68},
-            {name: "Bristol, City of", coords: [51.466792111288164, -2.6004447937862882], exclusion: 0.22931831, mh: 12.885542, cat: "3-3", color: "#7a6faa", n: 166},
-            {name: "North Somerset", coords: [51.389772376791115, -2.7942286764642006], exclusion: -0.6903069, mh: 11.727273, cat: "1-2", color: "#dfb0d6", n: 66},
-            {name: "South Gloucestershire", coords: [51.54189118526739, -2.457451662039329], exclusion: 0.073345497, mh: 10.666667, cat: "2-1", color: "#ace4e4", n: 87},
-            {name: "Plymouth", coords: [50.39197913290073, -4.11820426344043], exclusion: 0.038400028, mh: 11.436893, cat: "2-2", color: "#a5add3", n: 103},
-            {name: "Torbay", coords: [50.441740906543515, -3.55420744493933], exclusion: 0.5562883, mh: 11.980769, cat: "3-3", color: "#7a6faa", n: 52},
-            {name: "Swindon", coords: [51.571517343838174, -1.743812950866234], exclusion: -0.23925805, mh: 11.641975, cat: "1-2", color: "#dfb0d6", n: 81},
-            {name: "Peterborough", coords: [52.60856146773586, -0.25314734838891173], exclusion: 0.52726156, mh: 11.015152, cat: "3-1", color: "#5ac8c8", n: 66},
-            {name: "Luton", coords: [51.894225138693656, -0.4255906988057098], exclusion: 0.1268276, mh: 11.148936, cat: "2-1", color: "#ace4e4", n: 94},
-            {name: "Southend-on-Sea", coords: [51.547754730381456, 0.7094709578311581], exclusion: 0.73633081, mh: 12.040816, cat: "3-3", color: "#7a6faa", n: 49},
-            {name: "Thurrock", coords: [51.509098691896234, 0.36794683521271027], exclusion: 0.71169847, mh: 9.6862745, cat: "3-1", color: "#5ac8c8", n: 51},
-            {name: "Medway", coords: [51.41515997654943, 0.5539292762814176], exclusion: 0.23561485, mh: 10.647058, cat: "3-1", color: "#5ac8c8", n: 85},
-            {name: "Bracknell Forest", coords: [51.408111829283335, -0.7397382707305156], exclusion: -0.72138774, mh: 12.138889, cat: "1-3", color: "#d477a4", n: 36},
-            {name: "West Berkshire", coords: [51.44962786510938, -1.3044397324351034], exclusion: -1.2186836, mh: 10.275, cat: "1-1", color: "#e8e8e8", n: 40},
-            {name: "Reading", coords: [51.452978731676296, -0.9838251392281958], exclusion: -0.6938349, mh: 11.387096, cat: "1-2", color: "#dfb0d6", n: 62},
-            {name: "Slough", coords: [51.50839958798352, -0.5862353293760642], exclusion: -0.11149861, mh: 11.438597, cat: "2-2", color: "#a5add3", n: 57},
-            {name: "Windsor and Maidenhead", coords: [51.48567228280953, -0.699480119078884], exclusion: -0.18348159, mh: 11.454545, cat: "2-2", color: "#a5add3", n: 66},
-            {name: "Wokingham", coords: [51.4294049657243, -0.8838426868993542], exclusion: 0.20303935, mh: 12.021739, cat: "3-3", color: "#7a6faa", n: 46},
-            {name: "Milton Keynes", coords: [52.08380366407378, -0.7335417076366562], exclusion: -0.51932114, mh: 11.202797, cat: "1-1", color: "#e8e8e8", n: 143},
-            {name: "Brighton and Hove", coords: [50.84460477679116, -0.13405799166282353], exclusion: -0.41783184, mh: 13.114754, cat: "1-3", color: "#d477a4", n: 61},
-            {name: "Portsmouth", coords: [50.82069259797696, -1.0701162052337998], exclusion: 0.33943802, mh: 11.968254, cat: "3-3", color: "#7a6faa", n: 63},
-            {name: "Southampton", coords: [50.91991504103227, -1.3991404116917514], exclusion: -0.18073215, mh: 12.634615, cat: "2-3", color: "#ad6aaa", n: 52},
-            {name: "Isle of Wight", coords: [50.67468024947953, -1.297730603245962], exclusion: -0.35074329, mh: 13.75, cat: "1-3", color: "#d477a4", n: 28},
-            {name: "County Durham", coords: [54.69540397545572, -1.8401899439126117], exclusion: 0.38792512, mh: 11.019108, cat: "3-1", color: "#5ac8c8", n: 157},
-            {name: "Cheshire East", coords: [53.180268280434944, -2.3499435587911695], exclusion: 0.3820858, mh: 11.143791, cat: "3-1", color: "#5ac8c8", n: 153},
-            {name: "Cheshire West and Chester", coords: [53.19775360420383, -2.7328360872195554], exclusion: 0.40653682, mh: 11.756945, cat: "3-2", color: "#5698b9", n: 144},
-            {name: "Shropshire", coords: [52.63489056233282, -2.7340453131501383], exclusion: -0.12598027, mh: 11.024194, cat: "2-1", color: "#ace4e4", n: 124},
-            {name: "Cornwall", coords: [50.4063896497711, -4.827383486013705], exclusion: 0.014867731, mh: 12.193877, cat: "2-3", color: "#ad6aaa", n: 196},
-            {name: "Wiltshire", coords: [51.29710525655789, -1.9446079076752372], exclusion: -0.081294492, mh: 11.230367, cat: "2-2", color: "#a5add3", n: 191},
-            {name: "Bedford", coords: [52.18917952058371, -0.47708503404697183], exclusion: 0.61954397, mh: 12.432693, cat: "3-3", color: "#7a6faa", n: 104},
-            {name: "Central Bedfordshire", coords: [52.006623583167546, -0.4363009622562128], exclusion: -0.25979832, mh: 11.560976, cat: "1-2", color: "#dfb0d6", n: 82},
-            {name: "Northumberland", coords: [55.23853693630653, -2.0691643540165074], exclusion: 0.76472014, mh: 11.538462, cat: "3-2", color: "#5698b9", n: 130},
-            {name: "Bournemouth, Christchurch and Poole", coords: [50.74958871678371, -1.8789431343541516], exclusion: -0.32132918, mh: 11.204545, cat: "1-2", color: "#dfb0d6", n: 132},
-            {name: "Dorset", coords: [50.807933697596354, -2.3359658222972315], exclusion: -0.083883852, mh: 11.378788, cat: "2-2", color: "#a5add3", n: 132},
-            {name: "Buckinghamshire", coords: [51.78496273443489, -0.8115715961779246], exclusion: -0.25484741, mh: 11.42723, cat: "1-2", color: "#dfb0d6", n: 213},
-            {name: "North Northamptonshire", coords: [52.42548654785571, -0.6260593868373545], exclusion: -0.64419407, mh: 11.970803, cat: "1-3", color: "#d477a4", n: 137},
-            {name: "West Northamptonshire", coords: [52.222814426237974, -1.0363498811935423], exclusion: -0.070309877, mh: 11.742515, cat: "2-2", color: "#a5add3", n: 167},
-            {name: "Cambridge", coords: [52.1993685977839, 0.1329231354597449], exclusion: 0.14388973, mh: 13.346154, cat: "2-3", color: "#ad6aaa", n: 26},
-            {name: "East Cambridgeshire", coords: [52.34286518183813, 0.2948833586232855], exclusion: -0.58252692, mh: 10.75, cat: "1-1", color: "#e8e8e8", n: 16},
-            {name: "Huntingdonshire", coords: [52.373613486347374, -0.22080354289729498], exclusion: -0.35405433, mh: 11.237705, cat: "1-2", color: "#dfb0d6", n: 122},
-            {name: "South Cambridgeshire", coords: [52.172776491015064, 0.08129345849116132], exclusion: -0.78205663, mh: 10.955556, cat: "1-1", color: "#e8e8e8", n: 45},
-            {name: "Allerdale", coords: [54.70350217766435, -3.242007922614283], exclusion: 0.50211507, mh: 12.390244, cat: "3-3", color: "#7a6faa", n: 41},
-            {name: "Barrow-in-Furness", coords: [54.139205832113795, -3.203769999150077], exclusion: -0.14960037, mh: 13.363636, cat: "2-3", color: "#ad6aaa", n: 11},
-            {name: "Carlisle", coords: [54.97121852585428, -2.8040439262585903], exclusion: 0.66693228, mh: 11.379311, cat: "3-2", color: "#5698b9", n: 29},
-            {name: "Copeland", coords: [54.4201703861523, -3.372787199095145], exclusion: 0.11383579, mh: 12.409091, cat: "2-3", color: "#ad6aaa", n: 22},
-            {name: "Eden", coords: [54.612772754566, -2.621813016120457], exclusion: 0.038265884, mh: 10.347826, cat: "2-1", color: "#ace4e4", n: 23},
-            {name: "South Lakeland", coords: [54.312440501363575, -2.8310512759476025], exclusion: -0.52210623, mh: 10.555555, cat: "1-1", color: "#e8e8e8", n: 54},
-            {name: "Amber Valley", coords: [53.02923496069048, -1.4666596118164181], exclusion: 2.1080225, mh: 11.921569, cat: "3-2", color: "#5698b9", n: 51},
-            {name: "Bolsover", coords: [53.215625337217666, -1.2773252774146326], exclusion: 0.023508845, mh: 12.108109, cat: "2-3", color: "#ad6aaa", n: 37},
-            {name: "Chesterfield", coords: [53.25628053760588, -1.4012313305934663], exclusion: 0.32371971, mh: 11.48718, cat: "3-2", color: "#5698b9", n: 39},
-            {name: "Derbyshire Dales", coords: [53.12814553015162, -1.6936801769767562], exclusion: -0.9839986, mh: 11.268292, cat: "1-2", color: "#dfb0d6", n: 41},
-            {name: "Erewash", coords: [52.935489907041536, -1.3466960057545068], exclusion: -0.21480362, mh: 14.032787, cat: "1-3", color: "#d477a4", n: 61},
-            {name: "High Peak", coords: [53.3729482242048, -1.8739389730081624], exclusion: 0.17958406, mh: 10.920635, cat: "2-1", color: "#ace4e4", n: 63},
-            {name: "North East Derbyshire", coords: [53.22582761417313, -1.4482882138628486], exclusion: -0.050711233, mh: 11.476191, cat: "2-2", color: "#a5add3", n: 84},
-            {name: "South Derbyshire", coords: [52.830992008223575, -1.5595462016997592], exclusion: 0.62167615, mh: 11.352942, cat: "3-2", color: "#5698b9", n: 34},
-            {name: "East Devon", coords: [50.765528129428695, -3.2228342019072596], exclusion: -0.19468354, mh: 11.777778, cat: "2-2", color: "#a5add3", n: 36},
-            {name: "Exeter", coords: [50.72229890257638, -3.5108252073757646], exclusion: -0.015623202, mh: 11.214286, cat: "2-2", color: "#a5add3", n: 42},
-            {name: "Mid Devon", coords: [50.87626278775753, -3.5564254303623706], exclusion: -0.18337604, mh: 10.708333, cat: "2-1", color: "#ace4e4", n: 24},
-            {name: "North Devon", coords: [51.069037873134015, -3.9106620463167703], exclusion: -0.0057065026, mh: 12.137931, cat: "2-3", color: "#ad6aaa", n: 29},
-            {name: "South Hams", coords: [50.3750866956066, -3.8231661068927463], exclusion: -0.72250283, mh: 9.8571424, cat: "1-1", color: "#e8e8e8", n: 28},
-            {name: "Teignbridge", coords: [50.60655048798767, -3.658189792901186], exclusion: 0.51262325, mh: 11.706667, cat: "3-2", color: "#5698b9", n: 75},
-            {name: "West Devon", coords: [50.65672448789933, -4.045747259574029], exclusion: -0.44474804, mh: 11.054545, cat: "1-1", color: "#e8e8e8", n: 55},
-            {name: "Eastbourne", coords: [50.77674076783726, 0.26598199844110626], exclusion: -0.83116925, mh: 11.116279, cat: "1-1", color: "#e8e8e8", n: 43},
-            {name: "Hastings", coords: [50.869887301391785, 0.5704067534594116], exclusion: 0.59252769, mh: 11.382353, cat: "3-2", color: "#5698b9", n: 34},
-            {name: "Lewes", coords: [50.882757793585, 0.0047156675095892196], exclusion: -0.55316716, mh: 11.30303, cat: "1-2", color: "#dfb0d6", n: 33},
-            {name: "Rother", coords: [50.95221155881718, 0.537319205519021], exclusion: -0.093840182, mh: 10.930233, cat: "2-1", color: "#ace4e4", n: 43},
-            {name: "Wealden", coords: [50.96764617535514, 0.1985710052607769], exclusion: 0.1794425, mh: 12.816326, cat: "2-3", color: "#ad6aaa", n: 49},
-            {name: "Basildon", coords: [51.590314792662426, 0.4661261533480163], exclusion: 0.97698307, mh: 10.5625, cat: "3-1", color: "#5ac8c8", n: 48},
-            {name: "Braintree", coords: [51.941827967741766, 0.5899291443258846], exclusion: 0.35441825, mh: 11.74138, cat: "3-2", color: "#5698b9", n: 58},
-            {name: "Brentwood", coords: [51.63863489012023, 0.31075854164511174], exclusion: -0.29257467, mh: 11.363636, cat: "1-2", color: "#dfb0d6", n: 22},
-            {name: "Castle Point", coords: [51.545588884841, 0.5812576047863748], exclusion: 0.71256131, mh: 12.904762, cat: "3-3", color: "#7a6faa", n: 21},
-            {name: "Chelmsford", coords: [51.725634783129216, 0.4806022865186739], exclusion: -0.4276458, mh: 10.513158, cat: "1-1", color: "#e8e8e8", n: 76},
-            {name: "Colchester", coords: [51.87585130186401, 0.8570153531140333], exclusion: 0.04280705, mh: 10.319149, cat: "2-1", color: "#ace4e4", n: 47},
-            {name: "Epping Forest", coords: [51.70887577755295, 0.1486600135989726], exclusion: -0.32705444, mh: 9.8000002, cat: "1-1", color: "#e8e8e8", n: 35},
-            {name: "Harlow", coords: [51.76834890756971, 0.10853901357271457], exclusion: -0.14380266, mh: 10.702127, cat: "2-1", color: "#ace4e4", n: 47},
-            {name: "Maldon", coords: [51.710378297016334, 0.7685950074302734], exclusion: -0.1883395, mh: 14.5625, cat: "2-3", color: "#ad6aaa", n: 16},
-            {name: "Rochford", coords: [51.59500136182442, 0.7436182027848802], exclusion: 0.24062563, mh: 13.666667, cat: "3-3", color: "#7a6faa", n: 24},
-            {name: "Tendring", coords: [51.87038888055138, 1.1102470493407894], exclusion: -0.0070561371, mh: 11.146341, cat: "2-1", color: "#ace4e4", n: 41},
-            {name: "Uttlesford", coords: [51.93459995640621, 0.279801755778195], exclusion: -0.4403142, mh: 10.590909, cat: "1-1", color: "#e8e8e8", n: 22},
-            {name: "Cheltenham", coords: [51.896999367113054, -2.074022265673811], exclusion: -0.051572084, mh: 12.483871, cat: "2-3", color: "#ad6aaa", n: 31},
-            {name: "Cotswold", coords: [51.816446310755026, -1.8929557949384541], exclusion: -0.46032569, mh: 11.515152, cat: "1-2", color: "#dfb0d6", n: 33},
-            {name: "Gloucester", coords: [51.84933873249057, -2.239999687047202], exclusion: -0.14829871, mh: 10, cat: "2-1", color: "#ace4e4", n: 30},
-            {name: "Stroud", coords: [51.72848561079757, -2.295294515089972], exclusion: -0.16273922, mh: 12.729167, cat: "2-3", color: "#ad6aaa", n: 48},
-            {name: "Tewkesbury", coords: [51.945737531454384, -2.0871673877820163], exclusion: -0.66441101, mh: 11.75, cat: "1-2", color: "#dfb0d6", n: 64},
-            {name: "Basingstoke and Deane", coords: [51.27345807455325, -1.200946588641912], exclusion: -0.090213321, mh: 12.349206, cat: "2-3", color: "#ad6aaa", n: 63},
-            {name: "East Hampshire", coords: [51.074551492930865, -0.9551255678218958], exclusion: -0.014570677, mh: 10.382353, cat: "2-1", color: "#ace4e4", n: 68},
-            {name: "Eastleigh", coords: [50.93777232776515, -1.3264534916812512], exclusion: -0.19978926, mh: 11.30303, cat: "2-2", color: "#a5add3", n: 66},
-            {name: "Fareham", coords: [50.85307656118178, -1.222285597056739], exclusion: -0.38055772, mh: 10.412699, cat: "1-1", color: "#e8e8e8", n: 63},
-            {name: "Gosport", coords: [50.805058803462735, -1.1610582409041572], exclusion: -0.2124434, mh: 10.391304, cat: "1-1", color: "#e8e8e8", n: 23},
-            {name: "Hart", coords: [51.28481135832758, -0.8974727647752135], exclusion: -0.29253891, mh: 11.523809, cat: "1-2", color: "#dfb0d6", n: 21},
-            {name: "Havant", coords: [50.84816143668267, -0.9905195246252577], exclusion: -1.3045542, mh: 9.8571424, cat: "1-1", color: "#e8e8e8", n: 42},
-            {name: "New Forest", coords: [50.859919883179394, -1.6310881636937584], exclusion: -0.11842425, mh: 10.890909, cat: "2-1", color: "#ace4e4", n: 55},
-            {name: "Rushmoor", coords: [51.27344332941982, -0.7674814888064949], exclusion: -0.67911977, mh: 12.4, cat: "1-3", color: "#d477a4", n: 15},
-            {name: "Test Valley", coords: [51.128440264606255, -1.5106548319306732], exclusion: -0.28082708, mh: 9.590909, cat: "1-1", color: "#e8e8e8", n: 22},
-            {name: "Winchester", coords: [51.028180804595834, -1.22106920824553], exclusion: -0.20477943, mh: 10.702127, cat: "1-1", color: "#e8e8e8", n: 47},
-            {name: "Dacorum", coords: [51.778182341854716, -0.5408792014892642], exclusion: 0.29370695, mh: 11.566667, cat: "3-2", color: "#5698b9", n: 30},
-            {name: "Hertsmere", coords: [51.67728414040212, -0.28109821992704304], exclusion: -0.3961522, mh: 9.166667, cat: "1-1", color: "#e8e8e8", n: 36},
-            {name: "North Hertfordshire", coords: [51.95908925390771, -0.19271007962454476], exclusion: -0.83964312, mh: 8.848485, cat: "1-1", color: "#e8e8e8", n: 33},
-            {name: "Three Rivers", coords: [51.6609669122954, -0.4605992699862852], exclusion: -0.48559508, mh: 11.434783, cat: "1-2", color: "#dfb0d6", n: 23},
-            {name: "Ashford", coords: [51.12529082931345, 0.8112895182112264], exclusion: -0.29386219, mh: 12.3, cat: "1-3", color: "#d477a4", n: 20},
-            {name: "Canterbury", coords: [51.28087278763135, 1.1047839951745444], exclusion: -0.1120191, mh: 10.775862, cat: "2-1", color: "#ace4e4", n: 58},
-            {name: "Dartford", coords: [51.42982101744452, 0.25229137858466794], exclusion: -0.34854499, mh: 12.107142, cat: "1-3", color: "#d477a4", n: 28},
-            {name: "Dover", coords: [51.211512763975534, 1.2878826691852843], exclusion: 0.50845307, mh: 12.702703, cat: "3-3", color: "#7a6faa", n: 37},
-            {name: "Gravesham", coords: [51.4023302032601, 0.3950305141648515], exclusion: 0.51305681, mh: 12.119047, cat: "3-3", color: "#7a6faa", n: 42},
-            {name: "Maidstone", coords: [51.23499308597117, 0.5805510719367055], exclusion: 0.19275442, mh: 11.023809, cat: "3-1", color: "#5ac8c8", n: 42},
-            {name: "Sevenoaks", coords: [51.275406458027405, 0.17197037585393515], exclusion: 0.37362859, mh: 11.488372, cat: "3-2", color: "#5698b9", n: 43},
-            {name: "Folkestone and Hythe", coords: [51.055630818649355, 0.9940863814025007], exclusion: 0.5566569, mh: 9.3157892, cat: "3-1", color: "#5ac8c8", n: 19},
-            {name: "Swale", coords: [51.33550238106914, 0.8160742481620671], exclusion: 0.15205914, mh: 11.521739, cat: "2-2", color: "#a5add3", n: 46},
-            {name: "Thanet", coords: [51.354244508429794, 1.3377364157884863], exclusion: -0.037692003, mh: 10.727273, cat: "2-1", color: "#ace4e4", n: 44},
-            {name: "Tonbridge and Malling", coords: [51.273410229908315, 0.35747063628736214], exclusion: -0.21407405, mh: 13.113636, cat: "1-3", color: "#d477a4", n: 44},
-            {name: "Burnley", coords: [53.778935318532554, -2.2219450942300183], exclusion: 0.86996639, mh: 12.318182, cat: "3-3", color: "#7a6faa", n: 22},
-            {name: "Chorley", coords: [53.66148214298847, -2.647768301479623], exclusion: -0.81435025, mh: 10.9, cat: "1-1", color: "#e8e8e8", n: 20},
-            {name: "Fylde", coords: [53.78785607535198, -2.913641766774149], exclusion: -0.7177456, mh: 10.906977, cat: "1-1", color: "#e8e8e8", n: 43},
-            {name: "Hyndburn", coords: [53.75864712131564, -2.3897831246582917], exclusion: 0.054487158, mh: 13.257143, cat: "2-3", color: "#ad6aaa", n: 35},
-            {name: "Lancaster", coords: [54.06945299478893, -2.6897668750543047], exclusion: 0.23722696, mh: 10.432432, cat: "3-1", color: "#5ac8c8", n: 37},
-            {name: "Preston", coords: [53.81205928937487, -2.697451054822454], exclusion: 0.38769448, mh: 10.763158, cat: "3-1", color: "#5ac8c8", n: 38},
-            {name: "Ribble Valley", coords: [53.907219563301325, -2.4447569059626004], exclusion: -0.25031722, mh: 10.65625, cat: "1-1", color: "#e8e8e8", n: 32},
-            {name: "Rossendale", coords: [53.693815373143934, -2.267299157043984], exclusion: -0.098174691, mh: 10.125, cat: "2-1", color: "#ace4e4", n: 24},
-            {name: "South Ribble", coords: [53.72801060490268, -2.70894164661971], exclusion: -0.86548269, mh: 10.538462, cat: "1-1", color: "#e8e8e8", n: 39},
-            {name: "West Lancashire", coords: [53.59920535970281, -2.8699949368013047], exclusion: -0.90934139, mh: 11.333333, cat: "1-2", color: "#dfb0d6", n: 21},
-            {name: "Wyre", coords: [53.89703240866423, -2.8315339337943186], exclusion: -0.65478551, mh: 10.785714, cat: "1-1", color: "#e8e8e8", n: 14},
-            {name: "Blaby", coords: [52.57150715269791, -1.221962681549703], exclusion: -0.43831661, mh: 10.962963, cat: "1-1", color: "#e8e8e8", n: 27},
-            {name: "Charnwood", coords: [52.73700646880836, -1.1461370955227963], exclusion: -0.60126543, mh: 12.763889, cat: "1-3", color: "#d477a4", n: 72},
-            {name: "Harborough", coords: [52.53930639851587, -1.0081294664720508], exclusion: 0.38286972, mh: 11.9, cat: "3-2", color: "#5698b9", n: 20},
-            {name: "Hinckley and Bosworth", coords: [52.61648178400659, -1.3910562501322246], exclusion: 0.18631065, mh: 11.138889, cat: "3-1", color: "#5ac8c8", n: 36},
-            {name: "Melton", coords: [52.796379816211065, -0.8562205418831592], exclusion: -0.56824273, mh: 9.8571424, cat: "1-1", color: "#e8e8e8", n: 14},
-            {name: "North West Leicestershire", coords: [52.75311625804316, -1.405124163087225], exclusion: -0.23805781, mh: 11.4, cat: "1-2", color: "#dfb0d6", n: 55},
-            {name: "Oadby and Wigston", coords: [52.58713650891558, -1.093407437754937], exclusion: 0.13822299, mh: 9.5, cat: "2-1", color: "#ace4e4", n: 10},
-            {name: "Boston", coords: [52.973343881558264, -0.03800436207861473], exclusion: 1.2123784, mh: 11.26087, cat: "3-2", color: "#5698b9", n: 23},
-            {name: "East Lindsey", coords: [53.25134984446519, 0.02257194685931171], exclusion: 0.80572635, mh: 12.44, cat: "3-3", color: "#7a6faa", n: 50},
-            {name: "Lincoln", coords: [53.22472640338289, -0.5549532447255783], exclusion: 0.37032971, mh: 10.133333, cat: "3-1", color: "#5ac8c8", n: 30},
-            {name: "North Kesteven", coords: [53.08108049022199, -0.4459305795215301], exclusion: 0.17401761, mh: 9.9672127, cat: "2-1", color: "#ace4e4", n: 61},
-            {name: "South Kesteven", coords: [52.85429217643617, -0.5178461011732172], exclusion: -0.14254588, mh: 11.604651, cat: "2-2", color: "#a5add3", n: 43},
-            {name: "West Lindsey", coords: [53.39276800859239, -0.4766329931229923], exclusion: 0.18351264, mh: 10.818182, cat: "3-1", color: "#5ac8c8", n: 22},
-            {name: "Breckland", coords: [52.58792571603275, 0.8372667421595924], exclusion: 0.67660761, mh: 12, cat: "3-3", color: "#7a6faa", n: 60},
-            {name: "Broadland", coords: [52.70134425131846, 1.3101705744689434], exclusion: -0.76372182, mh: 11.377049, cat: "1-2", color: "#dfb0d6", n: 61},
-            {name: "Great Yarmouth", coords: [52.64227004566294, 1.6598426079642024], exclusion: 0.17013931, mh: 9.7179489, cat: "2-1", color: "#ace4e4", n: 39},
-            {name: "King's Lynn and West Norfolk", coords: [52.718162582337975, 0.47509061061116586], exclusion: 1.4348276, mh: 11.947369, cat: "3-3", color: "#7a6faa", n: 38},
-            {name: "North Norfolk", coords: [52.84809417063473, 1.1736001153062037], exclusion: 0.70234954, mh: 12.222222, cat: "3-3", color: "#7a6faa", n: 45},
-            {name: "Norwich", coords: [52.633056000065594, 1.2769575401548132], exclusion: 0.38713494, mh: 12, cat: "3-3", color: "#7a6faa", n: 59},
-            {name: "South Norfolk", coords: [52.5145456289637, 1.275515402976664], exclusion: -0.050553091, mh: 10.625, cat: "2-1", color: "#ace4e4", n: 56},
-            {name: "Craven", coords: [54.079823963563356, -2.174247794139352], exclusion: -0.31186113, mh: 10.516129, cat: "1-1", color: "#e8e8e8", n: 31},
-            {name: "Hambleton", coords: [54.28677198252158, -1.3190906711921209], exclusion: -1.0688381, mh: 11.5, cat: "1-2", color: "#dfb0d6", n: 30},
-            {name: "Harrogate", coords: [54.0670991937867, -1.5955408942882798], exclusion: -0.038158637, mh: 11.09804, cat: "2-1", color: "#ace4e4", n: 51},
-            {name: "Richmondshire", coords: [54.36153899378259, -1.934329244820427], exclusion: -0.86263353, mh: 11, cat: "1-1", color: "#e8e8e8", n: 8},
-            {name: "Ryedale", coords: [54.2104909351554, -0.8520147038841925], exclusion: 0.39577046, mh: 11.210526, cat: "3-2", color: "#5698b9", n: 38},
-            {name: "Scarborough", coords: [54.366442557317804, -0.6366886939288903], exclusion: -0.41102567, mh: 11.473684, cat: "1-2", color: "#dfb0d6", n: 38},
-            {name: "Ashfield", coords: [53.092258103240006, -1.259151360626401], exclusion: 1.6306651, mh: 12.590909, cat: "3-3", color: "#7a6faa", n: 44},
-            {name: "Bassetlaw", coords: [53.33277621149984, -0.9594004953376257], exclusion: 0.39644569, mh: 11.470589, cat: "3-2", color: "#5698b9", n: 34},
-            {name: "Broxtowe", coords: [52.97642069778399, -1.2620946227797865], exclusion: -0.14340232, mh: 11.15625, cat: "2-1", color: "#ace4e4", n: 64},
-            {name: "Gedling", coords: [53.028371935994016, -1.1193100647137324], exclusion: -0.20061766, mh: 12.714286, cat: "1-3", color: "#d477a4", n: 49},
-            {name: "Mansfield", coords: [53.170714624279626, -1.1727872269228876], exclusion: 0.19178131, mh: 12.725, cat: "3-3", color: "#7a6faa", n: 40},
-            {name: "Newark and Sherwood", coords: [53.123888611234264, -0.9198510575246519], exclusion: -0.076996729, mh: 10.387096, cat: "2-1", color: "#ace4e4", n: 31},
-            {name: "Rushcliffe", coords: [52.90084482498418, -1.0377394568869773], exclusion: -0.24563685, mh: 10.92, cat: "1-1", color: "#e8e8e8", n: 25},
-            {name: "Cherwell", coords: [51.95878206102506, -1.2755953417382062], exclusion: -0.44232672, mh: 12, cat: "1-3", color: "#d477a4", n: 57},
-            {name: "Oxford", coords: [51.75458659514765, -1.2409630178133197], exclusion: 0.24484211, mh: 12.428572, cat: "3-3", color: "#7a6faa", n: 28},
-            {name: "South Oxfordshire", coords: [51.63374801282717, -1.0714092482578812], exclusion: -0.7623198, mh: 12.074074, cat: "1-3", color: "#d477a4", n: 54},
-            {name: "Vale of White Horse", coords: [51.634231014376084, -1.4416712353572467], exclusion: -0.39441988, mh: 11.714286, cat: "1-2", color: "#dfb0d6", n: 35},
-            {name: "West Oxfordshire", coords: [51.83756750746389, -1.5069316526392753], exclusion: -1.1226805, mh: 11.074074, cat: "1-1", color: "#e8e8e8", n: 27},
-            {name: "Mendip", coords: [51.20291175199316, -2.5446528134738613], exclusion: -0.37800249, mh: 11.862069, cat: "1-2", color: "#dfb0d6", n: 29},
-            {name: "Sedgemoor", coords: [51.17983852038483, -2.9466112870871073], exclusion: -0.019119071, mh: 11.222222, cat: "2-2", color: "#a5add3", n: 45},
-            {name: "South Somerset", coords: [50.98814842781898, -2.709882510846475], exclusion: -0.11486791, mh: 10.672728, cat: "2-1", color: "#ace4e4", n: 55},
-            {name: "Cannock Chase", coords: [52.71238227845543, -1.9802319589156991], exclusion: -0.3312836, mh: 14.71875, cat: "1-3", color: "#d477a4", n: 32},
-            {name: "East Staffordshire", coords: [52.86326658328161, -1.8121406940583764], exclusion: -0.12175772, mh: 11.297619, cat: "2-2", color: "#a5add3", n: 84},
-            {name: "Lichfield", coords: [52.688168524755845, -1.8049153330848633], exclusion: 0.09382198, mh: 11.189655, cat: "2-1", color: "#ace4e4", n: 58},
-            {name: "Newcastle-under-Lyme", coords: [52.99312309090175, -2.3188752009655684], exclusion: -0.16894911, mh: 9.8965521, cat: "2-1", color: "#ace4e4", n: 29},
-            {name: "South Staffordshire", coords: [52.625393335719245, -2.1768100195231375], exclusion: 0.21920957, mh: 11.794118, cat: "3-2", color: "#5698b9", n: 34},
-            {name: "Stafford", coords: [52.84815233862031, -2.1764962932252914], exclusion: 0.12461603, mh: 10.942029, cat: "2-1", color: "#ace4e4", n: 69},
-            {name: "Tamworth", coords: [52.62642816040243, -1.677845350945039], exclusion: 0.31897706, mh: 8.454545, cat: "3-1", color: "#5ac8c8", n: 22},
-            {name: "Babergh", coords: [52.052926326200016, 0.9081340524085769], exclusion: 0.13006067, mh: 11.051282, cat: "2-1", color: "#ace4e4", n: 39},
-            {name: "Ipswich", coords: [52.05631204447693, 1.159721483394904], exclusion: -0.0011442304, mh: 11.257143, cat: "2-2", color: "#a5add3", n: 35},
-            {name: "Mid Suffolk", coords: [52.24681560111942, 1.092402464968538], exclusion: 0.38097614, mh: 10.857142, cat: "3-1", color: "#5ac8c8", n: 42},
-            {name: "Elmbridge", coords: [51.3571319076788, -0.39217313201367565], exclusion: -0.42695525, mh: 12.238095, cat: "1-3", color: "#d477a4", n: 21},
-            {name: "Epsom and Ewell", coords: [51.339166711228934, -0.261448549581971], exclusion: -1.1777378, mh: 11.764706, cat: "1-2", color: "#dfb0d6", n: 34},
-            {name: "Guildford", coords: [51.247799417325524, -0.5616495758352997], exclusion: -0.38174051, mh: 11.767858, cat: "1-2", color: "#dfb0d6", n: 56},
-            {name: "Mole Valley", coords: [51.21226415967867, -0.3251166528249491], exclusion: -0.77309513, mh: 13.882353, cat: "1-3", color: "#d477a4", n: 17},
-            {name: "Reigate and Banstead", coords: [51.2532000533045, -0.1918535876200684], exclusion: -0.55225909, mh: 11.913043, cat: "1-2", color: "#dfb0d6", n: 23},
-            {name: "Runnymede", coords: [51.39378704808432, -0.5413105916229082], exclusion: 0.92380559, mh: 12.857142, cat: "3-3", color: "#7a6faa", n: 14},
-            {name: "Spelthorne", coords: [51.424802617570954, -0.4679838451479406], exclusion: 0.10539007, mh: 11.862069, cat: "2-2", color: "#a5add3", n: 29},
-            {name: "Surrey Heath", coords: [51.342927891382246, -0.6705497268421243], exclusion: -1.2598797, mh: 9.8571424, cat: "1-1", color: "#e8e8e8", n: 14},
-            {name: "Waverley", coords: [51.14982925250047, -0.6326708658853907], exclusion: -0.50099719, mh: 11.18644, cat: "1-1", color: "#e8e8e8", n: 59},
-            {name: "Woking", coords: [51.313878344008515, -0.5607709120741478], exclusion: -0.99858576, mh: 8.9787235, cat: "1-1", color: "#e8e8e8", n: 47},
-            {name: "Nuneaton and Bedworth", coords: [52.50112834664527, -1.4758715944359437], exclusion: 0.2669, mh: 11.222222, cat: "3-2", color: "#5698b9", n: 27},
-            {name: "Rugby", coords: [52.3843603674876, -1.328294295240964], exclusion: -0.56084102, mh: 8.8666668, cat: "1-1", color: "#e8e8e8", n: 15},
-            {name: "Stratford-on-Avon", coords: [52.17878348636729, -1.6228410570558345], exclusion: 0.34951305, mh: 11.759259, cat: "3-2", color: "#5698b9", n: 54},
-            {name: "Warwick", coords: [52.310002276225426, -1.5846657134962039], exclusion: -0.51188308, mh: 12.136364, cat: "1-3", color: "#d477a4", n: 44},
-            {name: "Adur", coords: [50.844948235344965, -0.2992918457172976], exclusion: -0.25784293, mh: 9.272727, cat: "1-1", color: "#e8e8e8", n: 11},
-            {name: "Arun", coords: [50.841574399432936, -0.5676232155649308], exclusion: 0.85216922, mh: 14.1, cat: "3-3", color: "#7a6faa", n: 40},
-            {name: "Chichester", coords: [50.94195332510284, -0.7376298792929799], exclusion: -0.047257643, mh: 11.627907, cat: "2-2", color: "#a5add3", n: 43},
-            {name: "Crawley", coords: [51.12547043134824, -0.18203486997330365], exclusion: -1.172044, mh: 13, cat: "1-3", color: "#d477a4", n: 17},
-            {name: "Horsham", coords: [50.99384608006978, -0.366234447630465], exclusion: -0.51250231, mh: 10.509091, cat: "1-1", color: "#e8e8e8", n: 55},
-            {name: "Mid Sussex", coords: [51.0208394337695, -0.12705362275919738], exclusion: -0.55156904, mh: 10.058824, cat: "1-1", color: "#e8e8e8", n: 34},
-            {name: "Worthing", coords: [50.83002166175842, -0.39633861543534954], exclusion: -0.19718014, mh: 13.368421, cat: "2-3", color: "#ad6aaa", n: 19},
-            {name: "Bromsgrove", coords: [52.36175075192812, -2.0160148854683686], exclusion: -0.29078114, mh: 10.955556, cat: "1-1", color: "#e8e8e8", n: 45},
-            {name: "Malvern Hills", coords: [52.18275342753093, -2.3446622455803947], exclusion: -0.15839408, mh: 10.0625, cat: "2-1", color: "#ace4e4", n: 32},
-            {name: "Redditch", coords: [52.282285588131316, -1.951860461448161], exclusion: 0.0048868544, mh: 13.53125, cat: "2-3", color: "#ad6aaa", n: 32},
-            {name: "Worcester", coords: [52.19669258464109, -2.2113242160931748], exclusion: 0.32652152, mh: 12.184211, cat: "3-3", color: "#7a6faa", n: 38},
-            {name: "Wychavon", coords: [52.16418459174531, -2.0508149110070732], exclusion: -0.29562658, mh: 11.857142, cat: "1-2", color: "#dfb0d6", n: 28},
-            {name: "Wyre Forest", coords: [52.37957622113293, -2.274666651327862], exclusion: 0.018053513, mh: 12.409091, cat: "2-3", color: "#ad6aaa", n: 44},
-            {name: "St Albans", coords: [51.77206130341021, -0.3424951772784342], exclusion: -0.72054517, mh: 12.068182, cat: "1-3", color: "#d477a4", n: 44},
-            {name: "Welwyn Hatfield", coords: [51.76688932736148, -0.19408526828257422], exclusion: 0.14636564, mh: 11.862069, cat: "2-2", color: "#a5add3", n: 29},
-            {name: "East Hertfordshire", coords: [51.86505432994194, -0.00826159174747807], exclusion: -0.3742806, mh: 11.714286, cat: "1-2", color: "#dfb0d6", n: 49},
-            {name: "Stevenage", coords: [51.904314887238456, -0.18933246847805166], exclusion: -0.11144623, mh: 12.724138, cat: "2-3", color: "#ad6aaa", n: 29},
-            {name: "East Suffolk", coords: [52.23958062562001, 1.4613358203366666], exclusion: 0.15204842, mh: 11.816326, cat: "2-2", color: "#a5add3", n: 98},
-            {name: "West Suffolk", coords: [52.2777073142905, 0.6220678327281527], exclusion: 0.10760511, mh: 12.102041, cat: "2-3", color: "#ad6aaa", n: 49},
-            {name: "Somerset West and Taunton", coords: [51.08477956548257, -3.3645595634130965], exclusion: 0.50129062, mh: 11.396826, cat: "3-2", color: "#5698b9", n: 63},
-            {name: "Bolton", coords: [53.57863211994629, -2.4669697263938026], exclusion: 0.85246181, mh: 11.657718, cat: "3-2", color: "#5698b9", n: 149},
-            {name: "Bury", coords: [53.58783869140556, -2.312553219546226], exclusion: 0.0053338381, mh: 11.626506, cat: "2-2", color: "#a5add3", n: 83},
-            {name: "Manchester", coords: [53.45148368627056, -2.2325240684992274], exclusion: 0.24982308, mh: 12.689321, cat: "3-3", color: "#7a6faa", n: 206},
-            {name: "Oldham", coords: [53.5518874470602, -2.0506522847029784], exclusion: 1.4942607, mh: 12.417911, cat: "3-3", color: "#7a6faa", n: 67},
-            {name: "Rochdale", coords: [53.616552599687495, -2.1578679469429156], exclusion: -0.10413235, mh: 12.211111, cat: "2-3", color: "#ad6aaa", n: 90},
-            {name: "Salford", coords: [53.489538693706905, -2.37019061873291], exclusion: 0.74273425, mh: 11.075, cat: "3-1", color: "#5ac8c8", n: 40},
-            {name: "Stockport", coords: [53.39396112906843, -2.1281087253434245], exclusion: -0.49908069, mh: 11.333333, cat: "1-2", color: "#dfb0d6", n: 108},
-            {name: "Tameside", coords: [53.47747172280462, -2.0628138719547797], exclusion: -0.28778559, mh: 10.666667, cat: "1-1", color: "#e8e8e8", n: 45},
-            {name: "Trafford", coords: [53.41899588084709, -2.355349762526506], exclusion: -0.20974354, mh: 11.815789, cat: "1-2", color: "#dfb0d6", n: 76},
-            {name: "Wigan", coords: [53.524148530381844, -2.5895076397446912], exclusion: -0.67789149, mh: 10.786885, cat: "1-1", color: "#e8e8e8", n: 61},
-            {name: "Knowsley", coords: [53.425099822578375, -2.8340370462096725], exclusion: 0.93525285, mh: 12.269841, cat: "3-3", color: "#7a6faa", n: 63},
-            {name: "Liverpool", coords: [53.40391931663726, -2.9166626116517858], exclusion: -0.045644168, mh: 12.632912, cat: "2-3", color: "#ad6aaa", n: 79},
-            {name: "St. Helens", coords: [53.45947220020864, -2.723620041600732], exclusion: 0.096256167, mh: 11.61194, cat: "2-2", color: "#a5add3", n: 67},
-            {name: "Sefton", coords: [53.55103244487036, -3.0045304184327217], exclusion: 0.32550696, mh: 10.886076, cat: "3-1", color: "#5ac8c8", n: 79},
-            {name: "Wirral", coords: [53.36211274721337, -3.0711676922336273], exclusion: -0.28959894, mh: 11.930233, cat: "1-3", color: "#d477a4", n: 129},
-            {name: "Barnsley", coords: [53.53586986968883, -1.5325768259998047], exclusion: 0.28684643, mh: 10.234042, cat: "3-1", color: "#5ac8c8", n: 47},
-            {name: "Doncaster", coords: [53.54424012610085, -1.0958328101512438], exclusion: 0.8240847, mh: 12.272727, cat: "3-3", color: "#7a6faa", n: 99},
-            {name: "Rotherham", coords: [53.40861758571485, -1.2861509021983089], exclusion: 0.30104339, mh: 11.628572, cat: "3-2", color: "#5698b9", n: 70},
-            {name: "Sheffield", coords: [53.40441435413516, -1.5503795306016792], exclusion: -0.12174351, mh: 12.098182, cat: "2-3", color: "#ad6aaa", n: 275},
-            {name: "Newcastle upon Tyne", coords: [55.00824786295635, -1.6582282600899798], exclusion: -0.60027498, mh: 12.725, cat: "1-3", color: "#d477a4", n: 80},
-            {name: "North Tyneside", coords: [55.02840739912102, -1.5193225113481663], exclusion: 0.092224337, mh: 11.036697, cat: "2-1", color: "#ace4e4", n: 109},
-            {name: "South Tyneside", coords: [54.96273547156695, -1.4444528926655142], exclusion: 0.33290419, mh: 12.109091, cat: "3-3", color: "#7a6faa", n: 55},
-            {name: "Sunderland", coords: [54.879924199426924, -1.4527266512281756], exclusion: 0.64433461, mh: 12.174603, cat: "3-3", color: "#7a6faa", n: 63},
-            {name: "Birmingham", coords: [52.48854623298407, -1.8748030176257755], exclusion: 0.72875917, mh: 12.039106, cat: "3-3", color: "#7a6faa", n: 358},
-            {name: "Coventry", coords: [52.41686822808518, -1.519750563615875], exclusion: 0.24055955, mh: 12.439655, cat: "3-3", color: "#7a6faa", n: 116},
-            {name: "Dudley", coords: [52.48285031548392, -2.1087360379476094], exclusion: -0.36886093, mh: 11.6, cat: "1-2", color: "#dfb0d6", n: 60},
-            {name: "Sandwell", coords: [52.51542706702235, -2.00897277747935], exclusion: 0.90068895, mh: 12.742188, cat: "3-3", color: "#7a6faa", n: 128},
-            {name: "Solihull", coords: [52.41311618821202, -1.7270773277265454], exclusion: -0.28764623, mh: 11.575, cat: "1-2", color: "#dfb0d6", n: 80},
-            {name: "Walsall", coords: [52.59925569770664, -1.966347900770212], exclusion: 0.75543898, mh: 11.73913, cat: "3-2", color: "#5698b9", n: 92},
-            {name: "Wolverhampton", coords: [52.58919033923081, -2.1209914039394286], exclusion: 0.10111615, mh: 12.767858, cat: "2-3", color: "#ad6aaa", n: 112},
-            {name: "Bradford", coords: [53.84466962127761, -1.8546711885149785], exclusion: 0.52734107, mh: 12.400764, cat: "3-3", color: "#7a6faa", n: 262},
-            {name: "Calderdale", coords: [53.721179261599644, -1.9734124909399147], exclusion: 0.084605634, mh: 11.928572, cat: "2-3", color: "#ad6aaa", n: 70},
-            {name: "Kirklees", coords: [53.627355382791166, -1.7633084327685111], exclusion: -0.16026676, mh: 11.734807, cat: "2-2", color: "#a5add3", n: 181},
-            {name: "Leeds", coords: [53.82574526347612, -1.5060178283884895], exclusion: 0.29504278, mh: 11.477912, cat: "3-2", color: "#5698b9", n: 249},
-            {name: "Wakefield", coords: [53.66067451669428, -1.4118093170007884], exclusion: 0.069996879, mh: 11.420168, cat: "2-2", color: "#a5add3", n: 119},
-            {name: "Gateshead", coords: [54.935006656648135, -1.6832858238814612], exclusion: 0.39078188, mh: 12.25974, cat: "3-3", color: "#7a6faa", n: 77},
-            {name: "Barking and Dagenham", coords: [51.545281853949234, 0.13350617130960685], exclusion: 0.61488551, mh: 11.242424, cat: "3-2", color: "#5698b9", n: 66},
-            {name: "Barnet", coords: [51.616019679283774, -0.21001009115921915], exclusion: 0.21499519, mh: 12, cat: "3-3", color: "#7a6faa", n: 108},
-            {name: "Bexley", coords: [51.45879979802214, 0.14034274923592485], exclusion: -0.4702749, mh: 10.846154, cat: "1-1", color: "#e8e8e8", n: 78},
-            {name: "Brent", coords: [51.558549194148924, -0.26780993950202303], exclusion: 0.80374146, mh: 11.854369, cat: "3-2", color: "#5698b9", n: 103},
-            {name: "Bromley", coords: [51.37198118192042, 0.05153248336558806], exclusion: -0.27964038, mh: 12.858334, cat: "1-3", color: "#d477a4", n: 120},
-            {name: "Camden", coords: [51.54638885863366, -0.15741393773614287], exclusion: -0.018759349, mh: 12.615385, cat: "2-3", color: "#ad6aaa", n: 39},
-            {name: "Croydon", coords: [51.35531986844044, -0.08716788241015817], exclusion: -0.08994507, mh: 12.517241, cat: "2-3", color: "#ad6aaa", n: 87},
-            {name: "Ealing", coords: [51.5224709814969, -0.3310296165231793], exclusion: -0.11244315, mh: 11.489796, cat: "2-2", color: "#a5add3", n: 98},
-            {name: "Enfield", coords: [51.65099143024371, -0.0872552431861886], exclusion: 0.17163518, mh: 11.410256, cat: "2-2", color: "#a5add3", n: 156},
-            {name: "Greenwich", coords: [51.47278761908691, 0.05623210436487436], exclusion: 0.097421467, mh: 10.842105, cat: "2-1", color: "#ace4e4", n: 76},
-            {name: "Hackney", coords: [51.55226654092913, -0.0633176646920543], exclusion: 0.67785108, mh: 11.417583, cat: "3-2", color: "#5698b9", n: 91},
-            {name: "Haringey", coords: [51.59037222884645, -0.10746929780421924], exclusion: 0.093634486, mh: 11.717949, cat: "2-2", color: "#a5add3", n: 78},
-            {name: "Harrow", coords: [51.59771683394505, -0.34127775408998184], exclusion: -0.41596955, mh: 12.048544, cat: "1-3", color: "#d477a4", n: 103},
-            {name: "Havering", coords: [51.56437360917703, 0.22111873750861244], exclusion: 0.67007613, mh: 11.469879, cat: "3-2", color: "#5698b9", n: 83},
-            {name: "Hillingdon", coords: [51.541469759041476, -0.44566072547655183], exclusion: 0.39888182, mh: 11.408602, cat: "3-2", color: "#5698b9", n: 93},
-            {name: "Hounslow", coords: [51.46838003126957, -0.3671005080890883], exclusion: 0.15018028, mh: 13.603174, cat: "2-3", color: "#ad6aaa", n: 63},
-            {name: "Islington", coords: [51.5484822292566, -0.11024428085870552], exclusion: 0.44791061, mh: 12.389831, cat: "3-3", color: "#7a6faa", n: 59},
-            {name: "Kensington and Chelsea", coords: [51.50161309254817, -0.19276553511848307], exclusion: 1.1915656, mh: 10.2, cat: "3-1", color: "#5ac8c8", n: 15},
-            {name: "Kingston upon Thames", coords: [51.387890412115304, -0.28691108423155803], exclusion: -0.66212189, mh: 10.089286, cat: "1-1", color: "#e8e8e8", n: 56},
-            {name: "Lambeth", coords: [51.453098023198926, -0.1182884279067579], exclusion: -0.077177353, mh: 12.608696, cat: "2-3", color: "#ad6aaa", n: 69},
-            {name: "Lewisham", coords: [51.44807970487216, -0.020256029639276193], exclusion: 0.33999872, mh: 11.113402, cat: "3-1", color: "#5ac8c8", n: 97},
-            {name: "Merton", coords: [51.40994977819228, -0.19725016647754667], exclusion: -0.11642399, mh: 13.430555, cat: "2-3", color: "#ad6aaa", n: 72},
-            {name: "Newham", coords: [51.528337070257614, 0.03637481820545145], exclusion: 0.43617091, mh: 12.077381, cat: "3-3", color: "#7a6faa", n: 168},
-            {name: "Redbridge", coords: [51.585676550374615, 0.0758679113259968], exclusion: -0.036018975, mh: 11.417583, cat: "2-2", color: "#a5add3", n: 91},
-            {name: "Richmond upon Thames", coords: [51.44217089829328, -0.3130043681315128], exclusion: -0.16318989, mh: 11.26087, cat: "2-2", color: "#a5add3", n: 46},
-            {name: "Southwark", coords: [51.473145444914046, -0.07460818640395034], exclusion: 0.67619824, mh: 11.131147, cat: "3-1", color: "#5ac8c8", n: 61},
-            {name: "Sutton", coords: [51.36208548322044, -0.17756685902221703], exclusion: 0.60021108, mh: 11.411765, cat: "3-2", color: "#5698b9", n: 68},
-            {name: "Tower Hamlets", coords: [51.51717350214176, -0.035602407382805165], exclusion: 0.87962008, mh: 12.51497, cat: "3-3", color: "#7a6faa", n: 167},
-            {name: "Waltham Forest", coords: [51.594017121316824, -0.012636633089205453], exclusion: 0.082943842, mh: 12.647058, cat: "2-3", color: "#ad6aaa", n: 119},
-            {name: "Wandsworth", coords: [51.45134479981907, -0.18644486423593604], exclusion: -0.83449185, mh: 12.844828, cat: "1-3", color: "#d477a4", n: 58},
-            {name: "Westminster", coords: [51.51390337113731, -0.1613152901504963], exclusion: 0.076827526, mh: 13.513514, cat: "2-3", color: "#ad6aaa", n: 37}
-        ];
-
+        // Initialize the map
         const map = L.map('map').setView([53.5, -2.5], 6);
+        
+        // Add base map
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors | Mental Health Research'
         }).addTo(map);
 
-        data.forEach(area => {
-            const circle = L.circleMarker(area.coords, {
-                radius: Math.sqrt(area.n) / 2.5 + 3,
-                fillColor: area.color,
-                color: '#000',
-                weight: 1,
-                fillOpacity: 0.8
-            }).addTo(map);
-
-            circle.bindPopup(`
-                <div style="font-family: Arial, sans-serif; max-width: 250px;">
-                    <h3 style="margin: 0 0 10px 0; color: #333; border-bottom: 2px solid ${area.color}; padding-bottom: 5px;">
-                        ${area.name}
-                    </h3>
-                    <p style="margin: 5px 0;"><strong>Social Exclusion:</strong> ${area.exclusion.toFixed(3)}</p>
-                    <p style="margin: 5px 0;"><strong>Mental Health (GHQ):</strong> ${area.mh.toFixed(2)}</p>
-                    <p style="margin: 5px 0;"><strong>Sample Size:</strong> ${area.n}</p>
-                    <p style="margin: 5px 0; padding: 5px; background: ${area.color}; color: white; border-radius: 3px; text-align: center; font-size: 12px;">
-                        <strong>Category: ${area.cat}</strong>
-                    </p>
-                </div>
-            `);
-
-            circle.on('mouseover', function() {
-                this.setStyle({weight: 3, fillOpacity: 1});
+        // Load and display boundary data
+        fetch('./england_boundaries.geojson')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('GeoJSON data loaded successfully');
+                
+                // Add choropleth layer
+                const geojsonLayer = L.geoJSON(data, {
+                    style: function(feature) {
+                        return {
+                            fillColor: feature.properties.color || '#cccccc',
+                            weight: 1,
+                            opacity: 1,
+                            color: 'white',
+                            dashArray: '0',
+                            fillOpacity: 0.8
+                        };
+                    },
+                    onEachFeature: function(feature, layer) {
+                        const props = feature.properties;
+                        
+                        // Create popup content
+                        const popupContent = `
+                            <div style="font-family: Arial, sans-serif; max-width: 280px;">
+                                <h3 style="margin: 0 0 10px 0; color: #333; border-bottom: 2px solid ${props.color}; padding-bottom: 5px;">
+                                    ${props.name}
+                                </h3>
+                                <div style="display: grid; gap: 5px;">
+                                    <p style="margin: 0;"><strong>Social Exclusion:</strong> ${props.exclusion ? props.exclusion.toFixed(3) : 'N/A'}</p>
+                                    <p style="margin: 0;"><strong>Mental Health (GHQ):</strong> ${props.mh ? props.mh.toFixed(2) : 'N/A'}</p>
+                                    <p style="margin: 0;"><strong>Sample Size:</strong> ${props.n || 'N/A'}</p>
+                                    <div style="margin-top: 8px; padding: 5px; background: ${props.color}; color: white; border-radius: 3px; text-align: center; font-size: 12px; font-weight: bold;">
+                                        Category: ${props.cat || 'N/A'}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        
+                        layer.bindPopup(popupContent);
+                        
+                        // Add hover effects
+                        layer.on({
+                            mouseover: function(e) {
+                                const layer = e.target;
+                                layer.setStyle({
+                                    weight: 3,
+                                    color: '#333',
+                                    dashArray: '',
+                                    fillOpacity: 0.9
+                                });
+                                layer.bringToFront();
+                            },
+                            mouseout: function(e) {
+                                geojsonLayer.resetStyle(e.target);
+                            },
+                            click: function(e) {
+                                map.fitBounds(e.target.getBounds());
+                            }
+                        });
+                    }
+                }).addTo(map);
+                
+                // Fit map to data bounds
+                map.fitBounds(geojsonLayer.getBounds());
+                
+                // Hide loading indicator
+                document.getElementById('loadingDiv').style.display = 'none';
+                
+                console.log(`Choropleth map loaded with ${data.features.length} local authorities`);
+            })
+            .catch(error => {
+                console.error('Error loading GeoJSON:', error);
+                document.getElementById('loadingDiv').innerHTML = `
+                    <div style="color: red;">
+                        <strong>Error loading boundary data</strong><br>
+                        Make sure 'england_boundaries.geojson' is uploaded to your repository.
+                    </div>
+                `;
             });
-            circle.on('mouseout', function() {
-                this.setStyle({weight: 1, fillOpacity: 0.8});
-            });
-        });
-
-        console.log(`Mental Health Map loaded with ${data.length} local authorities`);
     </script>
 </body>
 </html>
