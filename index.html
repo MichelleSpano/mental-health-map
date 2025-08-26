@@ -80,16 +80,46 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     <script>
-        // Sample data - replace with your actual data
+
         const data = [
-            {name: "Manchester", coords: [53.4808, -2.2426], exclusion: 0.82, mh: 11.85, cat: "3-3", color: "#7a6faa", n: 245},
-            {name: "Birmingham", coords: [52.4862, -1.8904], exclusion: 0.76, mh: 11.82, cat: "3-3", color: "#7a6faa", n: 312},
-            {name: "Liverpool", coords: [53.4084, -2.9916], exclusion: 0.89, mh: 11.91, cat: "3-3", color: "#7a6faa", n: 287},
-            {name: "Surrey Heath", coords: [51.3378, -0.7420], exclusion: -0.45, mh: 10.45, cat: "1-1", color: "#e8e8e8", n: 156},
-            {name: "Cambridge", coords: [52.2053, 0.1218], exclusion: -0.32, mh: 10.52, cat: "1-1", color: "#e8e8e8", n: 189},
-            {name: "Tower Hamlets", coords: [51.5199, -0.0116], exclusion: 0.89, mh: 10.48, cat: "3-1", color: "#5ac8c8", n: 278},
-            {name: "Brighton", coords: [50.8225, -0.1372], exclusion: 0.23, mh: 11.82, cat: "2-3", color: "#ad6aaa", n: 203},
-            {name: "Bristol", coords: [51.4545, -2.5879], exclusion: 0.34, mh: 11.23, cat: "2-2", color: "#a5add3", n: 289}
+// Read and process the complete CSV data
+const csvData = await window.fs.readFile('complete_web_data.csv', { encoding: 'utf8' });
+
+// Parse the CSV
+import Papa from 'papaparse';
+const parsed = Papa.parse(csvData, {
+  header: true,
+  dynamicTyping: true,
+  skipEmptyLines: true
+});
+
+console.log("Data parsed successfully!");
+console.log("Number of areas:", parsed.data.length);
+console.log("Sample data:", parsed.data.slice(0, 3));
+
+// Convert to JavaScript array format
+const jsArrayCode = parsed.data.map(row => {
+  return `            {name: "${row.name}", coords: [${row.lat}, ${row.lon}], exclusion: ${row.exclusion}, mh: ${row.mh}, cat: "${row.cat}", color: "${row.color}", n: ${row.n}}`;
+}).join(',\n');
+
+console.log("\n=== JAVASCRIPT CODE FOR YOUR WEBSITE ===");
+console.log("Copy this entire data array and replace the data section in your HTML file:");
+console.log("\nconst data = [");
+console.log(jsArrayCode);
+console.log("        ];");
+
+// Also calculate some statistics
+const totalSample = parsed.data.reduce((sum, row) => sum + row.n, 0);
+console.log(`\n=== STATISTICS ===`);
+console.log(`Total areas: ${parsed.data.length}`);
+console.log(`Total sample size: ${totalSample.toLocaleString()}`);
+
+// Show distribution by category
+const categoryDistribution = {};
+parsed.data.forEach(row => {
+  categoryDistribution[row.cat] = (categoryDistribution[row.cat] || 0) + 1;
+});
+console.log("Category distribution:", categoryDistribution);
         ];
 
         const map = L.map('map').setView([53.5, -2.5], 6);
