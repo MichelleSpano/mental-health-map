@@ -35,8 +35,8 @@
     
     <div class="container">
         <div class="stats">
-            <p><strong>Complete Dataset:</strong> 293 Local Authorities | <strong>Total Sample:</strong> 18,273 participants</p>
-            <p><em>Click on any area to see detailed information</em></p>
+            <p><strong>Complete Dataset:</strong> 308 Local Authorities | <strong>Geographic Coverage:</strong> 21,260 participants </p>
+            <p><em>Multiple imputation applied to ensure complete geographic coverage - Click on any area to see detailed information</em></p>
         </div>
         
         <div class="map-box">
@@ -77,15 +77,15 @@
         
         <div class="insights">
             <div class="insight">
-                <h4>🔍 Double Disadvantage (Dark Purple) - 40 Areas</h4>
+                <h4>🔍 Double Disadvantage (Dark Purple) - 55 Areas</h4>
                 <p>Areas with both high social exclusion AND poor mental health outcomes - requiring comprehensive, targeted interventions addressing structural inequalities and mental health support.</p>
             </div>
             <div class="insight">
-                <h4>💪 Resilient Communities (Teal) - 23 Areas</h4>
+                <h4>💪 Resilient Communities (Teal) - 19 Areas</h4>
                 <p>Areas with high social exclusion but good mental health outcomes - understanding protective factors here could inform interventions elsewhere.</p>
             </div>
             <div class="insight">
-                <h4>🎯 Most Advantaged (Light Grey) - 41 Areas</h4>
+                <h4>🎯 Double Advantaged (Light Grey) - 56 Areas</h4>
                 <p>Areas with low social exclusion and good mental health - these communities demonstrate optimal conditions that could be models for policy development.</p>
             </div>
         </div>
@@ -102,7 +102,7 @@
         }).addTo(map);
 
         // Load and display boundary data
-        fetch('./england_boundariesImputed.geojson')
+        fetch('./england_boundaries_imputed.geojson')
             .then(response => {
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -181,7 +181,7 @@
                 document.getElementById('loadingDiv').innerHTML = `
                     <div style="color: red;">
                         <strong>Error loading boundary data</strong><br>
-                        Make sure 'england_boundaries.geojson' is uploaded to your repository.
+                        Make sure 'england_boundaries_imputed.geojson' is uploaded to your repository.
                     </div>
                 `;
             });
